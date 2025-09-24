@@ -1,56 +1,51 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>AIチャット</title>
+  <meta charset="utf-8">
+  <title>AI農業</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; margin-bottom: 10px; }
-    .msg { margin: 5px 0; }
-    .user { color: blue; }
-    .bot { color: green; }
+    body { font-family: sans-serif; padding: 1rem; }
+    #chat { margin-top: 1rem; border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
+    p { margin: 0.5rem 0; }
   </style>
 </head>
 <body>
-  <h1>AIチャット</h1>
-  <div id="chat"></div>
-  <input type="text" id="messageInput" placeholder="メッセージを入力" />
+  <h2>AIと対話</h2>
+  <input id="userInput" type="text" placeholder="メッセージを入力">
   <button onclick="sendMessage()">送信</button>
+  <div id="chat"></div>
 
   <script>
-    // ✅ ここにGASのデプロイURLを入れる（末尾が /exec）
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxuFpOqk7BdUNTxos4iHGosqcSnlI5Qbg-zmgdCqLVJQFtLu5TO4ZzzWJ6Gk0jMT7y8lA/exec";
 
-    async function sendMessage() {
-      const input = document.getElementById("messageInput");
-      const chat = document.getElementById("chat");
-      const userMessage = input.value.trim();
-      if (!userMessage) return;
+    async function main() {
+      await liff.init({ liffId: "2008097152-nDr40WqW" }); // あなたのLIFF ID
+    }
+    main();
 
-      // ユーザーのメッセージを表示
-      chat.innerHTML += `<div class="msg user">👤 ${userMessage}</div>`;
-      input.value = "";
+    async function sendMessage() {
+      const input = document.getElementById("userInput").value;
+      if (!input) return;
 
       try {
-        const response = await fetch(GAS_URL, {
+        const res = await fetch(GAS_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage })
+          body: JSON.stringify({ message: input })
         });
 
-        const data = await response.json();
-
-        if (data.reply) {
-          chat.innerHTML += `<div class="msg bot">🤖 ${data.reply}</div>`;
-        } else {
-          chat.innerHTML += `<div class="msg bot">⚠️ エラー: ${data.error || "不明なエラー"}</div>`;
+        if (!res.ok) {
+          throw new Error("サーバーエラー: " + res.status);
         }
-      } catch (err) {
-        chat.innerHTML += `<div class="msg bot">⚠️ 通信エラー: ${err.message}</div>`;
-      }
 
-      // 常に最新のメッセージが見えるようにスクロール
-      chat.scrollTop = chat.scrollHeight;
+        const data = await res.json();
+
+        document.getElementById("chat").innerHTML += "<p><b>あなた:</b> " + input + "</p>";
+        document.getElementById("chat").innerHTML += "<p><b>AI:</b> " + data.reply + "</p>";
+      } catch (err) {
+        document.getElementById("chat").innerHTML += "<p style='color:red'><b>エラー:</b> メッセージを送れませんでした (" + err.message + ")</p>";
+      }
     }
   </script>
 </body>
