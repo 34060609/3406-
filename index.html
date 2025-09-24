@@ -1,52 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <title>AI農業</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <meta charset="UTF-8" />
+  <title>AIチャット</title>
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    #chat { margin-top: 1rem; border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
-    p { margin: 0.5rem 0; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; margin-bottom: 10px; }
+    .msg { margin: 5px 0; }
+    .user { color: blue; }
+    .bot { color: green; }
   </style>
 </head>
 <body>
-  <h2>AIと対話</h2>
-  <input id="userInput" type="text" placeholder="メッセージを入力">
-  <button onclick="sendMessage()">送信</button>
+  <h1>AIチャット</h1>
   <div id="chat"></div>
+  <input type="text" id="messageInput" placeholder="メッセージを入力" />
+  <button onclick="sendMessage()">送信</button>
 
   <script>
-    // LIFF初期化
-    async function main() {
-      await liff.init({ liffId: "2008097152-nDr40WqW" }); 
-    }
-    main();
+    // ✅ ここにGASのデプロイURLを入れる（末尾が /exec）
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxuFpOqk7BdUNTxos4iHGosqcSnlI5Qbg-zmgdCqLVJQFtLu5TO4ZzzWJ6Gk0jMT7y8lA/exec";
 
-    // メッセージ送信処理
     async function sendMessage() {
-      const input = document.getElementById("userInput").value;
-      if (!input) return;
+      const input = document.getElementById("messageInput");
+      const chat = document.getElementById("chat");
+      const userMessage = input.value.trim();
+      if (!userMessage) return;
 
-      // ← ここを自分のGASデプロイURLに差し替える
-      const gasUrl = "https://script.google.com/macros/s/AKfycbzsc5m6RdA-NTR_FtXvoWvJ_IqjFypCQa7-fS8ovXNLESwjl-CKdYD-9L9jlmrRCoy5hw/exec";
+      // ユーザーのメッセージを表示
+      chat.innerHTML += `<div class="msg user">👤 ${userMessage}</div>`;
+      input.value = "";
 
       try {
-        const res = await fetch(gasUrl, {
+        const response = await fetch(GAS_URL, {
           method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({message: input})
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMessage })
         });
 
-        const data = await res.json();
+        const data = await response.json();
 
-        document.getElementById("chat").innerHTML += "<p><b>あなた:</b> " + input + "</p>";
-        document.getElementById("chat").innerHTML += "<p><b>AI:</b> " + data.reply + "</p>";
-        document.getElementById("userInput").value = ""; // 入力欄をクリア
+        if (data.reply) {
+          chat.innerHTML += `<div class="msg bot">🤖 ${data.reply}</div>`;
+        } else {
+          chat.innerHTML += `<div class="msg bot">⚠️ エラー: ${data.error || "不明なエラー"}</div>`;
+        }
       } catch (err) {
-        console.error(err);
-        document.getElementById("chat").innerHTML += "<p style='color:red;'><b>エラー:</b> メッセージを送れませんでした</p>";
+        chat.innerHTML += `<div class="msg bot">⚠️ 通信エラー: ${err.message}</div>`;
       }
+
+      // 常に最新のメッセージが見えるようにスクロール
+      chat.scrollTop = chat.scrollHeight;
     }
   </script>
 </body>
