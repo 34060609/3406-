@@ -17,21 +17,36 @@
   <div id="chat"></div>
 
   <script>
+    // LIFF初期化
     async function main() {
-      await liff.init({ liffId: "2008097152-nDr40WqW" }); // 後で設定
+      await liff.init({ liffId: "2008097152-nDr40WqW" }); 
     }
     main();
 
+    // メッセージ送信処理
     async function sendMessage() {
       const input = document.getElementById("userInput").value;
-      const res = await fetch("https://script.google.com/macros/s/AKfycbyujI2GlTQfY8PeN-BCXSixxYsnrkIxewLHEvDTPynjL8quBOg6pkqLUIONH422duohyQ/exec", { // ここにGASのURL
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({message: input})
-      });
-      const data = await res.json();
-      document.getElementById("chat").innerHTML += "<p><b>あなた:</b> " + input + "</p>";
-      document.getElementById("chat").innerHTML += "<p><b>AI:</b> " + data.reply + "</p>";
+      if (!input) return;
+
+      // ← ここを自分のGASデプロイURLに差し替える
+      const gasUrl = "https://script.google.com/macros/s/AKfycbxKQw9eJkGUF84nZUM9DtR71MkxwhrszDsjuC9-c5XStDh065doA9D1u2CoKYanz--T4g/exec";
+
+      try {
+        const res = await fetch(gasUrl, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({message: input})
+        });
+
+        const data = await res.json();
+
+        document.getElementById("chat").innerHTML += "<p><b>あなた:</b> " + input + "</p>";
+        document.getElementById("chat").innerHTML += "<p><b>AI:</b> " + data.reply + "</p>";
+        document.getElementById("userInput").value = ""; // 入力欄をクリア
+      } catch (err) {
+        console.error(err);
+        document.getElementById("chat").innerHTML += "<p style='color:red;'><b>エラー:</b> メッセージを送れませんでした</p>";
+      }
     }
   </script>
 </body>
