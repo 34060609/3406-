@@ -1,40 +1,112 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <title>AIチャット</title>
+  <meta charset="utf-8" />
+  <title>AIチャット（GitHub Pages + GAS）</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    #chat { margin-top: 1rem; border: 1px solid #ccc; padding: 1rem; min-height: 200px; }
-    p { margin: 0.5rem 0; }
+    body { font-family: Arial, sans-serif; padding: 1rem; max-width:800px; margin: auto; }
+    #chat { border:1px solid #ddd; padding:10px; min-height:220px; max-height:60vh; overflow:auto; background:#fafafa; }
+    .msg { margin:8px 0; }
+    .user { text-align:right; color:#0a66ff; }
+    .bot { text-align:left; color:#2d8f2d; }
+    .meta { font-size:0.8rem; color:#888; }
+    input[type=text] { width:75%; padding:8px; }
+    button { padding:8px 12px; }
   </style>
 </head>
 <body>
-  <h2>AIと対話</h2>
-  <input id="userInput" type="text" placeholder="メッセージを入力">
-  <button onclick="sendMessage()">送信</button>
-  <div id="chat"></div>
+  <h2>AIチャット（GitHub Pages + GAS）</h2>
+  <div id="chat" aria-live="polite"></div>
+
+  <div style="margin-top:10px;">
+    <input id="msg" type="text" placeholder="メッセージを入力" />
+    <button id="sendBtn">送信</button>
+  </div>
 
   <script>
-    function sendMessage() {
-      const input = document.getElementById("userInput").value;
-      if (!input) return;
+    // ↓ ここをあなたの GAS Webアプリ URL に置き換えてください（/exec で終わるもの）
+    const GAS_EXEC_URL = "https://script.google.com/macros/s/AKfycbwdnt-CFLGtuBpVd_cgZyscFNRItqV9IoB0Ceqtjdc9UK3iL82lQlYwnDwks1M91V_pgQ/exec";
 
-      // GAS WebアプリのURL
-      const gasUrl = "https://script.google.com/macros/s/AKfycbzMoGZdy0rjTWQ6PEH3-Fwk43Hp7SaGoIbr434_gcfBhGdObHqsJEBrxTzz3Gvu-JSbZw/exec";
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("msg");
+    const btn = document.getElementById("sendBtn");
 
-      // JSONP形式で呼び出す
+    function appendUser(text) {
+      chat.innerHTML += `<div class="msg user"><div>${escapeHtml(text)}</div></div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function appendBot(text) {
+      chat.innerHTML += `<div class="msg bot"><div>${escapeHtml(text)}</div></div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function appendError(text) {
+      chat.innerHTML += `<div class="msg bot"><div style="color:red">${escapeHtml(text)}</div></div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});
+    }
+
+    // JSONP 呼び出し（スクリプトタグを挿入して doGet を呼ぶ）
+    function callGASviaJSONP(message, onResult) {
+      const callbackName = "cb_" + Date.now() + "_" + Math.floor(Math.random()*1000);
+      window[callbackName] = function(response) {
+        // cleanup
+        try { delete window[callbackName]; } catch(e){}
+        const el = document.getElementById(callbackName);
+        if (el) el.parentNode.removeChild(el);
+        onResult(response);
+      };
+
+      const url = GAS_EXEC_URL + "?callback=" + encodeURIComponent(callbackName) + "&message=" + encodeURIComponent(message);
       const script = document.createElement("script");
-      script.src = gasUrl + "?message=" + encodeURIComponent(input) + "&callback=showReply";
+      script.src = url;
+      script.id = callbackName;
+      script.onerror = function() {
+        // cleanup on error
+        try { delete window[callbackName]; } catch(e){}
+        if (script.parentNode) script.parentNode.removeChild(script);
+        onResult({ error: "network error or blocked" });
+      };
       document.body.appendChild(script);
     }
 
-    function showReply(data) {
-      const input = document.getElementById("userInput").value;
-      document.getElementById("chat").innerHTML += "<p><b>あなた:</b> " + input + "</p>";
-      document.getElementById("chat").innerHTML += "<p><b>AI:</b> " + data.reply + "</p>";
-      document.getElementById("userInput").value = "";
-    }
+    btn.addEventListener("click", async () => {
+      const text = input.value.trim();
+      if (!text) return;
+      appendUser(text);
+      input.value = "";
+      appendBot("…応答を取得中…");
+
+      callGASviaJSONP(text, (res) => {
+        // remove the "…応答を取得中…" placeholder (remove the last bot placeholder)
+        const nodes = chat.querySelectorAll(".msg.bot");
+        if (nodes.length) {
+          const last = nodes[nodes.length - 1];
+          if (last && last.textContent.includes("応答を取得中")) {
+            last.parentNode.removeChild(last);
+          }
+        }
+
+        if (!res) {
+          appendError("応答がありません（レスポンスなし）");
+          return;
+        }
+        if (res.error) {
+          appendError("エラー: " + (res.error || JSON.stringify(res)));
+          return;
+        }
+        appendBot(res.reply || "(返答なし)");
+      });
+    });
+
+    // Enter キーで送信
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") {
+        btn.click();
+      }
+    });
   </script>
 </body>
 </html>
